@@ -1,54 +1,61 @@
 package com.liferay.mobile.vulcanapi
 
+import android.app.Activity
 import com.google.gson.Gson
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-inline fun <reified T : Model> vulcanConsumer(url: HttpUrl, fields: List<String> = emptyList(),
-    crossinline onComplete: (T) -> Unit) {
+inline fun <reified T : Model> vulcanConsumer(activity: Activity, url: HttpUrl, fields: List<String> = emptyList(),
+    crossinline onComplete: (Collection<BlogPosting>) -> Unit) {
 
   println("Hola!");
 
-  launch(UI) {
+//  launch(UI) {
 
-    asyncTask {
-      val okHttp = OkHttpClient()
+  Thread() {
+    //    asyncTask {
+    val okHttp = OkHttpClient()
 
-      val urlBuilder = url.newBuilder();
+    val urlBuilder = url.newBuilder();
 
-      //FIXME local graph
-      //FIXME event oriented
+    //FIXME local graph
+    //FIXME event oriented
 
-      configureSelectedFields(urlBuilder, fields)
-      configureEmbeddedParameters(urlBuilder)
+    configureSelectedFields(urlBuilder, fields)
+    configureEmbeddedParameters(urlBuilder)
 
-      val credential = createAuthentication()
+    val credential = createAuthentication()
 
-      val request = Request.Builder()
-          .url(urlBuilder.build())
-          .addHeader("Authorization", credential)
-          .addHeader("Accept", "application/ld+json")
-          .build()
-      val response = okHttp.newCall(request).execute()
+    val request = Request.Builder()
+        .url(urlBuilder.build())
+        .addHeader("Authorization", credential)
+        .addHeader("Accept", "application/ld+json")
+        .build()
+    val response = okHttp.newCall(request).execute()
 
-      val result = Gson().fromJson<T>(response.body()!!.string())
+    val result = Gson().fromJson<Collection<BlogPosting>>(response.body()!!.string())
 
-      val node = Node<T>(result, result.relationships.map { Node(it) })
-      graph.put(result.id, node)
-      result.relationships.forEach { graph.put(it.id, Node(it)) }
+    val node = Node(result)
+    graph.put(result.id, node)
+//      result.relationships.forEach { graph.put(it.id, Node(it)) }
 
-      result
-    }.await().let(onComplete)
-  }
+//    result
+    activity.runOnUiThread({ onComplete(result) })
+
+  }.start()
+//        .await().let(onComplete)
+//  }
 }
 
 class Node<out T>(val value: T, val relationships: List<Node<*>> = emptyList())
 
 var graph: MutableMap<String, Node<*>> = mutableMapOf()
+
+object kotlin {
+  val value = graph;
+}
 
 fun configureSelectedFields(httpUrl: HttpUrl.Builder, fields: List<String>) {
   httpUrl.addQueryParameter("fields[BlogPosting]", fields.joinToString(separator = ","))

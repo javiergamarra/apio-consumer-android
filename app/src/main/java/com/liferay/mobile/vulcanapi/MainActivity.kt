@@ -29,13 +29,15 @@ class MainActivity : AppCompatActivity() {
 
     val url = createEntryPoint()
 
-    vulcanConsumer<Collection<BlogPosting>>(url, fields) {
+    vulcanConsumer<Collection<BlogPosting>>(this, url, fields) {
 
       val listView = findViewById(R.id.list_view) as ListView
 
       val arrayAdapter = BlogPostingAdapter(this@MainActivity, R.layout.blog_posting_row, it.members)
       listView.adapter = arrayAdapter
       arrayAdapter.notifyDataSetChanged()
+
+      println(kotlin.value)
     }
   }
 
@@ -91,7 +93,7 @@ class SecondActivity : AppCompatActivity() {
 
     val httpURL = HttpUrl.parse(intent.getStringExtra("blogPostingId"))
 
-    vulcanConsumer<BlogPosting>(httpURL!!) {
+    vulcanConsumer<BlogPosting>(this, httpURL!!) {
 
     }
   }
