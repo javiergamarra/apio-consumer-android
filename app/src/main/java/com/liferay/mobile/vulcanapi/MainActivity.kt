@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
 
     val url = createEntryPoint()
 
-    vulcanConsumer<Collection<BlogPosting>>(this, url, fields) {
+    vulcanConsumer<Collection<BlogPosting>>(url, fields) {
 
       val listView = findViewById(R.id.list_view) as ListView
 
@@ -93,7 +93,7 @@ class SecondActivity : AppCompatActivity() {
 
     val httpURL = HttpUrl.parse(intent.getStringExtra("blogPostingId"))
 
-    vulcanConsumer<BlogPosting>(this, httpURL!!) {
+    vulcanConsumer<BlogPosting>(httpURL!!) {
 
     }
   }

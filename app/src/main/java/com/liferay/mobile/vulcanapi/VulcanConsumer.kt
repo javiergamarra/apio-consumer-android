@@ -1,52 +1,45 @@
 package com.liferay.mobile.vulcanapi
 
-import android.app.Activity
 import com.google.gson.Gson
+import kotlinx.coroutines.experimental.android.UI
+import kotlinx.coroutines.experimental.launch
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-inline fun <reified T : Model> vulcanConsumer(activity: Activity, url: HttpUrl, fields: List<String> = emptyList(),
-    crossinline onComplete: (Collection<BlogPosting>) -> Unit) {
+inline fun <reified T : Model> vulcanConsumer(url: HttpUrl, fields: List<String> = emptyList(),
+    crossinline onComplete: (T) -> Unit) {
 
-  println("Hola!");
+  launch(UI) {
 
-//  launch(UI) {
+    asyncTask {
+      val okHttp = OkHttpClient()
+      val urlBuilder = url.newBuilder();
 
-  Thread() {
-    //    asyncTask {
-    val okHttp = OkHttpClient()
+      //FIXME local graph
+      //FIXME event oriented
 
-    val urlBuilder = url.newBuilder();
+      configureSelectedFields(urlBuilder, fields)
+      configureEmbeddedParameters(urlBuilder)
 
-    //FIXME local graph
-    //FIXME event oriented
+      val credential = createAuthentication()
 
-    configureSelectedFields(urlBuilder, fields)
-    configureEmbeddedParameters(urlBuilder)
+      val request = Request.Builder()
+          .url(urlBuilder.build())
+          .addHeader("Authorization", credential)
+          .addHeader("Accept", "application/ld+json")
+          .build()
+      val response = okHttp.newCall(request).execute()
 
-    val credential = createAuthentication()
+      val result = Gson().fromJson<T>(response.body()!!.string())
 
-    val request = Request.Builder()
-        .url(urlBuilder.build())
-        .addHeader("Authorization", credential)
-        .addHeader("Accept", "application/ld+json")
-        .build()
-    val response = okHttp.newCall(request).execute()
-
-    val result = Gson().fromJson<Collection<BlogPosting>>(response.body()!!.string())
-
-    val node = Node(result)
-    graph.put(result.id, node)
+      val node = Node(result)
+      graph.put(result.id, node)
 //      result.relationships.forEach { graph.put(it.id, Node(it)) }
-
-//    result
-    activity.runOnUiThread({ onComplete(result) })
-
-  }.start()
-//        .await().let(onComplete)
-//  }
+      result
+    }.await().let(onComplete)
+  }
 }
 
 class Node<out T>(val value: T, val relationships: List<Node<*>> = emptyList())
