@@ -11,11 +11,17 @@ import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.TextView
 import com.google.gson.Gson
+import com.google.gson.JsonIOException
+import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
+import com.google.gson.stream.JsonReader
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.Deferred
 import kotlinx.coroutines.experimental.async
 import okhttp3.HttpUrl
+import java.io.EOFException
+import java.io.IOException
+import java.lang.reflect.Type
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,23 +29,60 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
 
-    val fields = listOf(
-        //        "headline",
-        "creator");
+    val fields = mapOf(
+        "BlogPosting" to listOf("creator"),
+        "Person" to listOf("name")
+    )
+
+    val embedded = listOf("creator")
 
     val url = createEntryPoint()
 
-    vulcanConsumer<Collection<BlogPosting>>(url, fields) {
+    vulcanConsumer<Collection<BlogPosting>>(url, fields, embedded,
+        {
+          //          fromJson<Collection<BlogPosting>>(JsonReader(StringReader(it)), object : TypeToken<Collection<BlogPosting>>() {}.type)!!
 
+          Gson().fromJson(it, object : TypeToken<Collection<BlogPosting>>() {}.type)
+        }) {
       val listView = findViewById(R.id.list_view) as ListView
 
       val arrayAdapter = BlogPostingAdapter(this@MainActivity, R.layout.blog_posting_row, it.members)
       listView.adapter = arrayAdapter
       arrayAdapter.notifyDataSetChanged()
-
-      println(kotlin.value)
     }
   }
+
+  @Throws(JsonIOException::class, JsonSyntaxException::class)
+  fun <T> fromJson(reader: JsonReader, typeOfT: Type): T? {
+    var isEmpty = true
+    val oldLenient = reader.isLenient
+    reader.isLenient = true
+    try {
+      reader.peek()
+      isEmpty = false
+      val typeToken = TypeToken.get(typeOfT) as TypeToken<T>
+      val typeAdapter = Gson().getAdapter<T>(typeToken)
+      val `object` = typeAdapter.read(reader)
+      return `object`
+    } catch (e: EOFException) {
+      /*
+       * For compatibility with JSON 1.5 and earlier, we return null for empty
+       * documents instead of throwing.
+       */
+      if (isEmpty) {
+        return null
+      }
+      throw JsonSyntaxException(e)
+    } catch (e: IllegalStateException) {
+      throw JsonSyntaxException(e)
+    } catch (e: IOException) {
+      // TODO(inder): Figure out whether it is indeed right to rethrow this as JsonSyntaxException
+      throw JsonSyntaxException(e)
+    } finally {
+      reader.isLenient = oldLenient
+    }
+  }
+
 
   private fun createEntryPoint() =
       HttpUrl.Builder()
@@ -77,7 +120,16 @@ class BlogPostingAdapter(context: Context, val layoutId: Int,
     }
     (view.findViewById(R.id.author) as TextView).apply {
       setOnClickListener(OCL)
-      this.text = blogPosting.creator.name
+      blogPosting.creator.ifRight {
+        this.text = it.name
+      }
+      blogPosting.creator.ifLeft {
+        vulcanConsumer<Person>(HttpUrl.parse(it)!!,
+            convert = { Gson().fromJson(it, object : TypeToken<Person>() {}.type) }) {
+          this.text = it.name
+        }
+      }
+
     }
 
     return view
@@ -91,14 +143,16 @@ class SecondActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_second)
 
+
     val httpURL = HttpUrl.parse(intent.getStringExtra("blogPostingId"))
 
-    vulcanConsumer<BlogPosting>(httpURL!!) {
-
+    vulcanConsumer<BlogPosting>(httpURL!!, embedded = listOf("creator"),
+        convert = { Gson().fromJson(it, object : TypeToken<BlogPosting>() {}.getType()) }) {
+      (findViewById(R.id.headline) as TextView).apply {
+        text = (graph[it.id]!!.value as BlogPosting).headline
+      }
     }
   }
 }
 
 fun <T> asyncTask(function: () -> T): Deferred<T> = async(CommonPool) { function() }
-
-inline fun <reified T> Gson.fromJson(json: String) = this.fromJson<T>(json, object : TypeToken<T>() {}.type)
