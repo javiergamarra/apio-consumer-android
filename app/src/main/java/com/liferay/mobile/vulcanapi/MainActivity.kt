@@ -10,11 +10,11 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.TextView
-import com.google.gson.Gson
-import com.google.gson.JsonIOException
-import com.google.gson.JsonSyntaxException
+import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
+import com.google.gson.stream.JsonWriter
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.Deferred
 import kotlinx.coroutines.experimental.async
@@ -22,6 +22,7 @@ import okhttp3.HttpUrl
 import java.io.EOFException
 import java.io.IOException
 import java.lang.reflect.Type
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,7 +43,11 @@ class MainActivity : AppCompatActivity() {
         {
           //          fromJson<Collection<BlogPosting>>(JsonReader(StringReader(it)), object : TypeToken<Collection<BlogPosting>>() {}.type)!!
 
-          Gson().fromJson(it, object : TypeToken<Collection<BlogPosting>>() {}.type)
+          val gson = GsonBuilder().registerTypeAdapter(object : TypeToken<Either<String, Person>>() {
+          }.type,
+              EitherTypeAdapter()).create()
+
+          gson.fromJson(it, object : TypeToken<Collection<BlogPosting>>() {}.type)
         }) {
       val listView = findViewById(R.id.list_view) as ListView
 
@@ -87,7 +92,7 @@ class MainActivity : AppCompatActivity() {
   private fun createEntryPoint() =
       HttpUrl.Builder()
           .scheme("http")
-          .host("192.168.50.33")
+          .host("192.168.1.103")
           .port(8080)
           .addPathSegments("o/api/group")
           .addPathSegment(20140.toString())
@@ -156,3 +161,22 @@ class SecondActivity : AppCompatActivity() {
 }
 
 fun <T> asyncTask(function: () -> T): Deferred<T> = async(CommonPool) { function() }
+
+class EitherTypeAdapter : TypeAdapter<Either<String, Model>>() {
+
+  override fun write(out: JsonWriter?, value: Either<String, Model>?) {
+    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+  }
+
+  @Throws(IOException::class)
+  override fun read(jsonReader: JsonReader): Either<String, Model> {
+
+    if (jsonReader.peek() == JsonToken.BEGIN_OBJECT) {
+      val adapter = Gson().getAdapter(Model::class.java)
+      return Right(adapter.read(jsonReader))
+    } else {
+      return Left(jsonReader.nextString())
+    }
+  }
+
+}
