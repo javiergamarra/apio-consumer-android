@@ -178,7 +178,7 @@ class EitherTypeAdapter : TypeAdapter<Either<String, Model>>() {
   override fun read(jsonReader: JsonReader): Either<String, Model> {
 
     if (jsonReader.peek() == JsonToken.BEGIN_OBJECT) {
-      val adapter = Gson().getAdapter(Model::class.java)
+      val adapter = Gson().getAdapter(Person::class.java)
       return Right(adapter.read(jsonReader))
     } else {
       return Left(jsonReader.nextString())
