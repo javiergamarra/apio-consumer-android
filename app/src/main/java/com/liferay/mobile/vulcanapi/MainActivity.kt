@@ -152,8 +152,13 @@ class SecondActivity : AppCompatActivity() {
 
     val httpURL = HttpUrl.parse(intent.getStringExtra("blogPostingId"))
 
+    val type = TypeToken.getParameterized(Either::class.java, String::class.java, Person::class.java).type
+
+    val gson = GsonBuilder().registerTypeAdapter(type, EitherTypeAdapter()).create()
+
     vulcanConsumer<BlogPosting>(httpURL!!, embedded = listOf("creator"),
-        convert = { Gson().fromJson(it, object : TypeToken<BlogPosting>() {}.getType()) }) {
+
+        convert = { gson.fromJson(it, object : TypeToken<BlogPosting>() {}.getType()) }) {
       (findViewById(R.id.headline) as TextView).apply {
         text = (graph[it.id]!!.value as BlogPosting).headline
       }
