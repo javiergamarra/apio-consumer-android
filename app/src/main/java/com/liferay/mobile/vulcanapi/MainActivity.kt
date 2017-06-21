@@ -43,8 +43,9 @@ class MainActivity : AppCompatActivity() {
         {
           //          fromJson<Collection<BlogPosting>>(JsonReader(StringReader(it)), object : TypeToken<Collection<BlogPosting>>() {}.type)!!
 
-          val gson = GsonBuilder().registerTypeAdapter(object : TypeToken<Either<String, Person>>() {
-          }.type,
+          val type = TypeToken.getParameterized(Either::class.java, String::class.java, Person::class.java).type
+
+          val gson = GsonBuilder().registerTypeAdapter(type,
               EitherTypeAdapter()).create()
 
           gson.fromJson(it, object : TypeToken<Collection<BlogPosting>>() {}.type)
